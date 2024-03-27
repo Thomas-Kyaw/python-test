@@ -138,6 +138,6 @@ def main(file_path):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python script.py <file_path>")
+        print("Usage: python3 ida-star.py <file_path>")
         sys.exit(1)
     main(sys.argv[1])
