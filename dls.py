@@ -81,7 +81,7 @@ def update_gui(grid, current_path=[], current=None):
             cell.grid(row=y, column=x)
     window.update_idletasks()
     window.update()
-    time.sleep(0.1)  # Slow down the update speed for better visualization
+    time.sleep(0.5)  # Slow down the update speed for better visualization
 
 def dls(grid, start, goal, limit, update_func, visited, path=[]):
     if start == goal:
@@ -103,7 +103,48 @@ def dls(grid, start, goal, limit, update_func, visited, path=[]):
     
     return None
 
-def main(file_path, depth_limit):
+def dls_console(grid, start, goal, limit, visited=set(), path=[]):
+    if start == goal:
+        return path + [start]
+    
+    if limit <= 0 or start in visited:
+        return None
+    
+    visited.add(start)
+    new_path = path + [start]
+    
+    for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+        next_pos = (start[0] + dx, start[1] + dy)
+        if 0 <= next_pos[0] < len(grid[0]) and 0 <= next_pos[1] < len(grid) and grid[next_pos[1]][next_pos[0]] != 'X':
+            result_path = dls_console(grid, next_pos, goal, limit - 1, visited, new_path)
+            if result_path is not None:
+                return result_path
+    
+    return None
+
+def print_grid(grid, path=[]):
+    # Prints the grid and marks the path from start to goal
+    for y in range(len(grid)):
+        row = ''
+        for x in range(len(grid[0])):
+            if (x, y) == path[0]:
+                cell = 'S '  # Start
+            elif (x, y) in path[1:-1]:
+                cell = '. '  # Path
+            elif (x, y) == path[-1]:
+                cell = 'G '  # Goal
+            elif grid[y][x] == 'X':
+                cell = 'X '  # Obstacle
+            elif grid[y][x] == 'G':
+                cell = 'G '  # Unreached goal
+            elif grid[y][x] == 'R':
+                cell = 'R '  # Unreached start
+            else:
+                cell = '- '  # Empty space
+            row += cell
+        print(row)
+
+def main(file_path, depth_limit, use_gui=False):
     content = read_input_file(file_path)
     num_rows, num_cols = extract_grid_dimensions(content[0])
     initial_state = tuple(map(int, re.findall(r'\d+', content[1])))
@@ -112,27 +153,40 @@ def main(file_path, depth_limit):
     grid = create_empty_grid(num_rows, num_cols, initial_state, goal_states)
     place_blocks(grid, blocks)
 
-    init_gui(grid)
-
-    for goal in goal_states:
-        visited = set()
-        path = dls(grid, initial_state, goal, depth_limit, update_gui, visited, [])
-        if path:
-            print("Path found from", initial_state, "to goal state:", goal)
-            print("Path:", path)
-            update_gui(grid, path, None)  # Update GUI to show the final path
-            break
-
-    if not path:
-        print("No path found from", initial_state, "to any goal state.")
-        update_gui(grid, [], None)  # Clear path visualization
-
-    window.mainloop()
+    if use_gui:
+        init_gui(grid)
+        for goal in goal_states:
+            visited = set()
+            path = dls(grid, initial_state, goal, depth_limit, update_gui, visited, [])
+            if path:
+                print("Path found from", initial_state, "to goal state:", goal)
+                print("Path:", path)
+                update_gui(grid, path, None)  # Update GUI to show the final path
+                break
+        if not path:
+            print("No path found from", initial_state, "to any goal state.")
+            update_gui(grid, [], None)  # Clear path visualization
+        window.mainloop()
+    else:
+        for goal in goal_states:
+            visited = set()
+            path = dls_console(grid, initial_state, goal, depth_limit, visited, [])
+            if path:
+                print("Path found from", initial_state, "to goal state:", goal)
+                print("Path:", path)
+                print_grid(grid, path)  # Print the grid with the path marked
+                break
+        if not path:
+            print("No path found from", initial_state, "to any goal state with depth limit", depth_limit)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python3 dls_gui.py <file_path> <depth_limit>")
+    use_gui = '--gui' in sys.argv
+    args = [arg for arg in sys.argv[1:] if arg != '--gui']
+
+    if len(args) != 2:
+        print("Usage: python dls_gui.py <file_path> <depth_limit> [--gui]")
         sys.exit(1)
-    file_path = sys.argv[1]
-    depth_limit = int(sys.argv[2])
-    main(file_path, depth_limit)
+
+    file_path = args[0]
+    depth_limit = int(args[1])
+    main(file_path, depth_limit, use_gui)

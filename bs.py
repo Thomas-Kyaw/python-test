@@ -179,6 +179,62 @@ def bidirectional_search_with_final_path_highlight(grid, start, goal, update_fun
 
     return None
 
+def bidirectional_search_console(grid, start, goal_states):
+    queue_start = Queue()
+    queue_goal = Queue()
+
+    queue_start.put([start])  # Stores paths starting from 'start'
+    queue_goal.put([goal_states[0]])  # Assumes a single goal for simplicity; adjust as needed
+
+    visited_start = {start: None}
+    visited_goal = {goal_states[0]: None}
+
+    while not queue_start.empty() and not queue_goal.empty():
+        # Search step from start
+        path_start = queue_start.get()
+        current_start = path_start[-1]
+        if current_start in visited_goal:
+            # Merge paths at intersection and print
+            path_goal_reversed = reconstruct_path(visited_goal, current_start)
+            final_path = path_start + path_goal_reversed[::-1][1:]  # Remove duplicate meeting point
+            print("Path found from start to goal:", final_path)
+            print_grid(grid, final_path)
+            return True, final_path
+        
+        # Explore neighbors from start
+        for neighbor in get_neighbors(current_start, grid):
+            if neighbor not in visited_start:
+                visited_start[neighbor] = current_start
+                queue_start.put(path_start + [neighbor])
+        
+        # Search step from goal
+        path_goal = queue_goal.get()
+        current_goal = path_goal[-1]
+        if current_goal in visited_start:
+            # Merge paths at intersection and print
+            path_start_reversed = reconstruct_path(visited_start, current_goal)
+            final_path = path_start_reversed[::-1] + path_goal[1:]  # Remove duplicate meeting point
+            print("Path found from goal to start:", final_path)
+            print_grid(grid, final_path)
+            return True, final_path
+
+        # Explore neighbors from goal
+        for neighbor in get_neighbors(current_goal, grid):
+            if neighbor not in visited_goal:
+                visited_goal[neighbor] = current_goal
+                queue_goal.put(path_goal + [neighbor])
+
+    print("No path found.")
+    return False, []
+
+def reconstruct_path(visited, current):
+    # Reconstructs the path from visited nodes
+    path = []
+    while current is not None:
+        path.append(current)
+        current = visited[current]
+    return path[::-1]  # Return reversed path
+
 def draw_final_path(path, cell_size):
     for position in path:
         x, y = position
@@ -190,7 +246,7 @@ def parse_tuple(s):
     # Extracts numbers from a string and returns them as a tuple of integers
     return tuple(map(int, re.findall(r'\d+', s)))
 
-def main_with_gui(file_path):
+def main(file_path, use_gui=False):
     content = read_input_file(file_path)
     num_rows, num_cols = extract_grid_dimensions(content[0])
     initial_state = parse_tuple(content[1])
@@ -200,22 +256,32 @@ def main_with_gui(file_path):
     grid = create_empty_grid(num_rows, num_cols, initial_state, goal_states)
     place_blocks(grid, blocks)
 
-    cell_size = setup_gui(grid)
-    goal_state = goal_states[0] if goal_states else None
-
-    if goal_state:
-        path = bidirectional_search_with_final_path_highlight(grid, initial_state, goal_state, update_gui, cell_size)
-        if path:
-            print("Path found!")
+    if use_gui:
+        cell_size = setup_gui(grid)
+        goal_state = goal_states[0] if goal_states else None
+        if goal_state:
+            path = bidirectional_search_with_final_path_highlight(grid, initial_state, goal_state, update_gui, cell_size)
+            if path:
+                print("Path found!")
+            else:
+                print("No path found.")
         else:
-            print("No path found.")
+            print("Error: No goal state provided.")
+        window.mainloop()
     else:
-        print("Error: No goal state provided.")
-
-    window.mainloop()
+        bidirectional_search_console(grid, initial_state, goal_states)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 bs.py <file_path>")
-    else:
-        main_with_gui(sys.argv[1])
+    # Adjusted command-line argument parsing logic
+    use_gui = '--gui' in sys.argv
+    file_path = None
+    for arg in sys.argv[1:]:  # Skip the script name
+        if arg != '--gui':
+            file_path = arg
+            break
+
+    if file_path is None:
+        print("Usage: python bs.py <file_path> [--gui]")
+        sys.exit(1)
+
+    main(file_path, use_gui)

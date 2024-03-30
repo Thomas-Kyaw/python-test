@@ -85,15 +85,47 @@ def bfs(grid, start, goal_states):
     # Start the BFS steps with a delay of 500ms between each one.
     window.after(500, bfs_step, queue, goal_states, visited, start, grid)
 
+def bfs_console(grid, start, goal_states):
+    queue = Queue()
+    queue.put([start])  # Queue stores paths rather than nodes
+    visited = set([start])
+    
+    while not queue.empty():
+        path = queue.get()
+        current = path[-1]
+        
+        if current in goal_states:
+            print("Path found:", path)
+            print_grid(grid, path)
+            return path
+        
+        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            neighbor = (current[0] + dx, current[1] + dy)
+            if 0 <= neighbor[0] < len(grid[0]) and 0 <= neighbor[1] < len(grid) and grid[neighbor[1]][neighbor[0]] != 'X' and neighbor not in visited:
+                visited.add(neighbor)
+                new_path = list(path)
+                new_path.append(neighbor)
+                queue.put(new_path)
+    
+    print("No path found.")
+    return []
+
 def print_grid(grid, path=[]):
-    # Prints the grid with the path from start to goal.
     for y in range(len(grid)):
         row = ''
         for x in range(len(grid[0])):
-            if (x, y) in path:
-                row += 'P '  # Mark the path with 'P'.
+            if (x, y) == path[0]:
+                row += 'S '  # Start
+            elif (x, y) in path[1:-1]:
+                row += 'P '  # Path
+            elif (x, y) == path[-1] and len(path) > 1:
+                row += 'G '  # Goal
+            elif grid[y][x] == 'X':
+                row += 'X '  # Obstacle
+            elif grid[y][x] == 'G':
+                row += 'G '  # Goal state (unreached)
             else:
-                row += f'{grid[y][x]} '
+                row += '- '  # Empty space
         print(row.strip())
 
 def update_gui(grid, path=[], current=None, visited=set(), start=None):
@@ -143,31 +175,30 @@ def init_gui(grid):
     window.protocol("WM_DELETE_WINDOW", on_window_close)
 
 
-def main(file_path):
+def main(file_path, use_gui=False):
     content = read_input_file(file_path)
     
-    # Extract grid dimensions, initial state, goal states, and blocks
     num_rows, num_cols = extract_grid_dimensions(content[0])
     initial_state = tuple(map(int, re.findall(r'\d+', content[1])))
     goal_states = [tuple(map(int, re.findall(r'\d+', x))) for x in content[2].split('|')]
     blocks = [tuple(map(int, re.findall(r'\d+', x))) for x in content[3:]]
     
-    # Create grid and place blocks
     grid = create_empty_grid(num_rows, num_cols, initial_state, goal_states)
     place_blocks(grid, blocks)
     
-    # Initialize GUI with the initial grid state
-    init_gui(grid)
-    # Start the BFS search with a delay
-    bfs(grid, initial_state, set(goal_states))  
-    
-    # Start the Tkinter event loop
-    window.mainloop()
+    if use_gui:
+        init_gui(grid)
+        bfs(grid, initial_state, set(goal_states))
+        window.mainloop()
+    else:
+        print("Starting BFS search without GUI...")
+        bfs_console(grid, initial_state, goal_states)
 
 if __name__ == "__main__":
-    # Entry point of the program. Ensures the script is being run directly.
-    if len(sys.argv) != 2:
-        # Checks if the user has provided exactly one argument (the file path)
-        print("Usage: python bfs.py <file_path>")
+    use_gui = '--gui' in sys.argv
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print("Usage: python3 bfs.py <file_path> [--gui]")
         sys.exit(1)
-    main(sys.argv[1])
+    
+    file_path = sys.argv[1]
+    main(file_path, use_gui)

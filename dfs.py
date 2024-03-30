@@ -56,6 +56,20 @@ def dfs(grid, x, y, goal_states, visited, path=[]):
             grid[ny][nx] = '-'
     return False, path
 
+def dfs_console(grid, x, y, goal_states, visited, path=[]):
+    if (x, y) in goal_states:
+        return True, path + [(x, y)]
+    
+    directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+    visited.add((x, y))
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if 0 <= nx < len(grid[0]) and 0 <= ny < len(grid) and grid[ny][nx] not in ['X', 'V'] and (nx, ny) not in visited:
+            result, new_path = dfs_console(grid, nx, ny, goal_states, visited, path + [(x, y)])
+            if result:
+                return True, new_path
+    return False, path
+
 def update_gui(grid, path=[], current=None, visited=set(), start=None):
     global grid_frame
     for widget in grid_frame.winfo_children():
@@ -103,39 +117,58 @@ def init_gui(grid):
             
     window.protocol("WM_DELETE_WINDOW", on_window_close)
 
-def main(file_path):
+def print_grid(grid, path=[]):
+    for y in range(len(grid)):
+        row = ''
+        for x in range(len(grid[0])):
+            if (x, y) in path:
+                row += 'P '  # Path
+            elif grid[y][x] == 'X':
+                row += 'X '  # Obstacle
+            elif grid[y][x] == 'G':
+                row += 'G '  # Goal
+            elif grid[y][x] == 'R':
+                row += 'S '  # Start
+            else:
+                row += '- '  # Empty
+        print(row)
+
+def main(file_path, use_gui=False):
     content = read_input_file(file_path)
-    # Extract grid dimensions, initial state, goal states, and blocks
     num_rows, num_cols = extract_grid_dimensions(content[0])
     initial_state = tuple(map(int, re.findall(r'\d+', content[1])))
     goal_states = [tuple(map(int, re.findall(r'\d+', x))) for x in content[2].split('|')]
     blocks = [tuple(map(int, re.findall(r'\d+', x))) for x in content[3:]]
-
-    # Create grid and place blocks
+    
     grid = create_empty_grid(num_rows, num_cols, initial_state, goal_states)
     place_blocks(grid, blocks)
 
-    # Initialize GUI with the initial grid state
-    init_gui(grid)
-
-    # Perform DFS search
-    visited = set()
-    found, path = dfs(grid, initial_state[0], initial_state[1], set(goal_states), visited)
-
-    # Update GUI with the path if found
-    if found:
-        print("Path found!")
-        update_gui(grid, path=path, current=None, visited=visited, start=initial_state)
+    if use_gui:
+        init_gui(grid)
+        visited = set()
+        found, path = dfs(grid, initial_state[0], initial_state[1], set(goal_states), visited)
+        if found:
+            print("Path found!")
+            update_gui(grid, path=path, current=None, visited=visited, start=initial_state)
+        else:
+            print("No path found.")
+            update_gui(grid, path=[], current=None, visited=visited, start=initial_state)
+        window.mainloop()
     else:
-        print("No path found.")
-        update_gui(grid, path=[], current=None, visited=visited, start=initial_state)
-
-    # Start the Tkinter event loop
-    window.mainloop()
+        visited = set()
+        found, path = dfs_console(grid, initial_state[0], initial_state[1], set(goal_states), visited)
+        if found:
+            print("Path found:", path)
+            print_grid(grid, path)
+        else:
+            print("No path found.")
 
 if __name__ == "__main__":
-    # Checks if the user has provided exactly one argument (the file path)
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <file_path>")
-        sys.exit(1)    
-    main(sys.argv[1])
+    use_gui = '--gui' in sys.argv
+    args = [arg for arg in sys.argv[1:] if arg != '--gui']
+
+    if len(args) != 1:
+        print("Usage: python script.py <file_path> [--gui]")
+        sys.exit(1)
+    
+    main(args[0], use_gui)
