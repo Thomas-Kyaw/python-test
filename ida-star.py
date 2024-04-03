@@ -6,6 +6,7 @@ import time
 # Global variables for GUI
 window = None
 grid_frame = None
+cell_frames = []  # Store references to cell frames
 
 def read_input_file(file_path):
     try:
@@ -43,59 +44,67 @@ def place_blocks(grid, blocks):
 def manhattan_distance(pos, goal):
     return abs(pos[0] - goal[0]) + abs(pos[1] - goal[1])
 
-def ida_star(grid, start, goals):
+def ida_star(grid, start, goals, use_gui=False):
     path = []
     threshold = min(manhattan_distance(start, goal) for goal in goals)
     
     while True:
-        temp, path = search(start, 0, threshold, grid, goals, [start], {start})
+        temp, path = search(start, 0, threshold, grid, goals, [start], {start}, use_gui)
         if temp == "FOUND":
             return path
         if temp == float('inf'):
             return []
         threshold = temp
 
-def search(node, g, threshold, grid, goals, path, visited):
+def search(node, g, threshold, grid, goals, path, visited, use_gui):
     f = g + min(manhattan_distance(node, goal) for goal in goals)
     if f > threshold:
         return f, path
     if node in goals:
-        update_gui(grid, path=path + [node], current=node)  # Update to show current path + node
+        if use_gui:
+            update_gui(grid, path=path + [node], current=node, use_gui=use_gui)
         return "FOUND", path
     min_threshold = float('inf')
 
-    update_gui(grid, path=path, current=node)  # Update GUI on each recursive call to show current exploration
-    time.sleep(0.05)  # Slow down to visualize the search
+    if use_gui:
+        update_gui(grid, path=path, current=node, use_gui=use_gui)
+        time.sleep(0.05)  # Slow down to visualize the search
 
     for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
         x, y = node[0] + dx, node[1] + dy
         if 0 <= x < len(grid[0]) and 0 <= y < len(grid) and grid[y][x] != 'X' and (x, y) not in visited:
             visited.add((x, y))
-            temp, new_path = search((x, y), g + 1, threshold, grid, goals, path + [(x, y)], visited)
+            temp, new_path = search((x, y), g + 1, threshold, grid, goals, path + [(x, y)], visited, use_gui)
             if temp == "FOUND":
-                return "FOUND", new_path  # Found a path, no need to remove from visited as the path is correct
+                return "FOUND", new_path
             if temp < min_threshold:
                 min_threshold = temp
-            else:
-                visited.remove((x, y))  # Backtrack: remove from visited if not leading to a solution
+            visited.remove((x, y))  # Backtrack: remove from visited if not leading to a solution
 
     return min_threshold, path
 
 def init_gui(grid):
-    global window, grid_frame
+    global window, grid_frame, cell_frames
     window = tk.Tk()
     window.title("IDA* Pathfinding")
     grid_frame = tk.Frame(window)
     grid_frame.pack()
-    update_gui(grid)
 
-def update_gui(grid, path=[], current=None):
-    global grid_frame
-    if grid_frame is None:
-        return  # Guard against calling before initialization
-    for widget in grid_frame.winfo_children():
-        widget.destroy()
+    cell_frames = [[None for _ in range(len(grid[0]))] for _ in range(len(grid))]  # Initialize cell frame references
     cell_size = 50
+    for y in range(len(grid)):
+        row = []
+        for x in range(len(grid[0])):
+            color = 'white'
+            cell = tk.Frame(grid_frame, width=cell_size, height=cell_size, bg=color, borderwidth=1, relief="solid")
+            cell.grid(row=y, column=x)
+            row.append(cell)
+        cell_frames[y] = row
+    update_gui(grid, use_gui=True)  # Initial grid setup
+
+def update_gui(grid, path=[], current=None, use_gui=False):
+    if not use_gui or grid_frame is None:
+        return  # Skip GUI update if not in GUI mode
     for y in range(len(grid)):
         for x in range(len(grid[0])):
             color = 'white'
@@ -107,14 +116,23 @@ def update_gui(grid, path=[], current=None):
                 color = 'green'
             elif grid[y][x] == 'R':
                 color = 'blue'
-            cell = tk.Frame(grid_frame, width=cell_size, height=cell_size, bg=color, borderwidth=1, relief="solid")
-            cell.grid(row=y, column=x)
+            cell_frames[y][x].config(bg=color)
     window.update_idletasks()
     window.update()
-    time.sleep(0.05) # Adjust the sleep time as needed for visualization
+    time.sleep(0.05)  # Adjust the sleep time as needed for visualization
 
-def main(file_path):
+def print_grid_with_path(grid, path):
+    grid_copy = [row[:] for row in grid]  # Make a copy of the grid
+    for x, y in path:
+        grid_copy[y][x] = 'P'  # Mark the path on the grid
+    for row in grid_copy:
+        print(' '.join(row))  # Print each row of the grid
+
+def main(file_path, use_gui=False):
     content = read_input_file(file_path)
+    if content is None:  # Check if file reading was successful
+        sys.exit(1)
+    
     num_rows, num_cols = extract_grid_dimensions(content[0])
     initial_state = tuple(map(int, re.findall(r'\d+', content[1])))
     goal_states = [tuple(map(int, re.findall(r'\d+', x))) for x in content[2].split('|')]
@@ -123,21 +141,25 @@ def main(file_path):
     grid = create_empty_grid(num_rows, num_cols, initial_state, goal_states)
     place_blocks(grid, blocks)
 
-    init_gui(grid)  # Initialize GUI with the grid
+    if use_gui:
+        init_gui(grid)  # Initialize GUI with the grid
 
-    path = ida_star(grid, initial_state, goal_states)  # Run IDA* to find a path
+    path = ida_star(grid, initial_state, set(goal_states), use_gui)  # Corrected to pass use_gui
 
     if path:
         print("Path found:", path)
-        update_gui(grid, path=path, current=None)  # Visualize the final path
+        if not use_gui:  # Ensure the grid is only printed for the console version
+            print_grid_with_path(grid, path)
     else:
         print("No path found.")
-        update_gui(grid, path=[], current=None)  # Show the grid without a path
-
-    window.mainloop()
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 ida-star.py <file_path>")
+    use_gui = '--gui' in sys.argv
+    args = [arg for arg in sys.argv[1:] if arg != '--gui']
+
+    if len(args) != 1:
+        print("Usage: python3 ida_star.py <file_path> [--gui]")
         sys.exit(1)
-    main(sys.argv[1])
+
+    main(args[0], use_gui)
+
