@@ -65,9 +65,6 @@ def greedy_best_first_search(grid, start, goal_states, use_gui=True, visualizati
         if current in goal_states:
             path = reconstruct_path(came_from, current)
             directions = get_path_directions(path)  # Get directions from the path
-            print(f"Goal Node: {current}")
-            print(f"Visited Nodes: {num_visited_nodes}")
-            print(f"Path Directions: {directions}")
             if use_gui:
                 update_gui(grid, path=path + [current], visited=visited, current=current, start=start, goal_states=goal_states, sleep_time=visualization_speed)
             return True, path, current, num_visited_nodes, directions
@@ -172,6 +169,8 @@ def main(file_path, use_gui=True):
         if found:
             path = [initial_state] + path
             update_gui(grid, path=path, visited=set(), current=None, start=initial_state, goal_states=set(goal_states))
+            print(f"Path found from {initial_state} to goal node {goal_node} with {visited_nodes} nodes visited.")
+            print(f"Path directions: {path_directions}")
             time.sleep(2)  # Give time to visualize the final path
         window.mainloop()
     else:

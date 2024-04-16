@@ -210,6 +210,10 @@ def main(file_path, use_gui=False):
         if found:
             # Final update to draw the entire path in yellow
             update_gui(grid, None, PriorityQueue(), path)
+            print_grid(grid, path)
+            print("Path found with directions:")
+            print(directions)
+            print("Number of nodes visited:", visited_nodes)
         else:
             print("Path not found.")
         window.mainloop()

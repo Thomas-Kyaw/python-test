@@ -180,6 +180,11 @@ def main(file_path, use_gui=False):
         found, path, directions, visited_nodes_count = bfs_search(grid, initial_state, goal_states)
         if found:
             update_gui(grid, None, path)  # Final update to draw the entire path in yellow
+            print_grid(grid, path)
+            print(f"Goal Node: {goal_states[0]}")  # Assume single goal state for this output
+            print(f"Number of nodes visited by the path: {visited_nodes_count}")
+            print("Path found with directions:")
+            print(' -> '.join(directions))  # Print directions with arrows
         else:
             print("Path not found.")
         window.mainloop()
