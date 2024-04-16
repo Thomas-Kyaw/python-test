@@ -7,6 +7,7 @@ import time
 window = None
 grid_frame = None
 cell_frames = []  # Store references to cell frames
+visited_nodes = set()
 
 def read_input_file(file_path):
     try:
@@ -57,6 +58,8 @@ def ida_star(grid, start, goals, use_gui=False):
         threshold = temp
 
 def search(node, g, threshold, grid, goals, path, visited, use_gui):
+    global visited_nodes
+    visited_nodes.add(node)  # Track visited nodes globally
     f = g + min(manhattan_distance(node, goal) for goal in goals)
     if f > threshold:
         return f, path
@@ -68,9 +71,9 @@ def search(node, g, threshold, grid, goals, path, visited, use_gui):
 
     if use_gui:
         update_gui(grid, path=path, current=node, use_gui=use_gui)
-        time.sleep(0.05)  # Slow down to visualize the search
+        time.sleep(0.05)
 
-    for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+    for dx, dy in [(-1, 0), (0, -1), (1, 0), (0, 1)]:
         x, y = node[0] + dx, node[1] + dy
         if 0 <= x < len(grid[0]) and 0 <= y < len(grid) and grid[y][x] != 'X' and (x, y) not in visited:
             visited.add((x, y))
@@ -119,7 +122,7 @@ def update_gui(grid, path=[], current=None, use_gui=False):
             cell_frames[y][x].config(bg=color)
     window.update_idletasks()
     window.update()
-    time.sleep(0.05)  # Adjust the sleep time as needed for visualization
+    time.sleep(0.3)  # Adjust the sleep time as needed for visualization
 
 def print_grid_with_path(grid, path):
     grid_copy = [row[:] for row in grid]  # Make a copy of the grid
@@ -128,11 +131,20 @@ def print_grid_with_path(grid, path):
     for row in grid_copy:
         print(' '.join(row))  # Print each row of the grid
 
+def format_directions(path):
+    directions = []
+    direction_symbols = {(-1, 0): 'up', (1, 0): 'down', (0, -1): 'left', (0, 1): 'right'}
+    for i in range(1, len(path)):
+        dx = path[i][0] - path[i-1][0]
+        dy = path[i][1] - path[i-1][1]
+        directions.append(direction_symbols.get((dx, dy), 'unknown'))
+    return '; '.join(directions)
+
 def main(file_path, use_gui=False):
     content = read_input_file(file_path)
-    if content is None:  # Check if file reading was successful
+    if content is None:
         sys.exit(1)
-    
+
     num_rows, num_cols = extract_grid_dimensions(content[0])
     initial_state = tuple(map(int, re.findall(r'\d+', content[1])))
     goal_states = [tuple(map(int, re.findall(r'\d+', x))) for x in content[2].split('|')]
@@ -142,14 +154,18 @@ def main(file_path, use_gui=False):
     place_blocks(grid, blocks)
 
     if use_gui:
-        init_gui(grid)  # Initialize GUI with the grid
-
-    path = ida_star(grid, initial_state, set(goal_states), use_gui)  # Corrected to pass use_gui
+        init_gui(grid)
+    path = ida_star(grid, initial_state, set(goal_states), use_gui)
 
     if path:
+        directions = format_directions(path)
         print("Path found:", path)
-        if not use_gui:  # Ensure the grid is only printed for the console version
-            print_grid_with_path(grid, path)
+        print(f"Goal node: {goal_states[0]}")
+        print(f"Nodes visited: {len(visited_nodes)}")
+        print(f"Direction path: {directions}")
+        if use_gui:
+            update_gui(grid, path=path, use_gui=use_gui)
+            window.mainloop()
     else:
         print("No path found.")
 
@@ -162,4 +178,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     main(args[0], use_gui)
-
